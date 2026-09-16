@@ -1,0 +1,12 @@
+@import './styles/variables.css';
+@import './styles/base.css';
+@import './styles/toolbar.css';
+@import './styles/sidebar.css';
+@import './styles/panes.css';
+@import './styles/markdown.css';
+@import './styles/searchBar.css';
+@import './styles/settingsModal.css';
+@import './styles/quickOpen.css';
+@import './styles/diff.css';
+@import './styles/contextMenu.css';
+@import './styles/print.css';

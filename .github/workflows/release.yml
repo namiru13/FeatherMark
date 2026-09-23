@@ -1,4 +1,4 @@
-﻿name: Release App
+name: Release App
 
 on:
   push:
@@ -38,7 +38,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: 'Markdown Viewer v__VERSION__'
-          releaseBody: 'Markdown Viewer の最新リリースです。環境に合わせたインストーラーをダウンロードしてご利用ください。'
+          releaseName: 'FeatherMark v__VERSION__'
+          releaseBody: 'FeatherMark の最新リリースです。Windows環境向けのインストーラー（.exe / .msi）をダウンロードしてご利用いただけます。'
           releaseDraft: false
           prerelease: false

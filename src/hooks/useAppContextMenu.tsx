@@ -147,6 +147,9 @@ export function useAppContextMenu({
         actions: {
           onOpenInApp: handleOpenInApp,
           onRevealInExplorer: handleRevealInExplorer,
+          onOpenDiff,
+          onCompareGit,
+          onOpenGitCommitModal,
           onCopyPath: handleCopyPath,
           onPrintDocument: () => {
             closeContextMenu();
@@ -162,6 +165,9 @@ export function useAppContextMenu({
       customApps,
       handleOpenInApp,
       handleRevealInExplorer,
+      onOpenDiff,
+      onCompareGit,
+      onOpenGitCommitModal,
       handleCopyPath,
       handlePrintDocument,
       closeContextMenu,

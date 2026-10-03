@@ -7,6 +7,7 @@ import { SearchBar } from './SearchBar';
 import { DiffViewer } from './DiffViewer';
 import { usePaneContext, useUIContext, useWorkspaceContext } from '../../contexts';
 import { useMermaidRenderer } from '../../hooks/useMermaidRenderer';
+import { setDraggingTab, getDraggingTab } from '../../utils/dragState';
 
 export interface MarkdownPaneProps {
   pane: PaneItem;
@@ -27,9 +28,11 @@ export const MarkdownPane: React.FC<MarkdownPaneProps> = ({
     panes,
     activePaneId,
     setActivePaneId,
+    canSplit,
     handleSelectTab,
     handleCloseTab,
     handleSplitPane,
+    splitPaneWithTab,
     handleClosePane,
     handleMoveTab,
   } = usePaneContext();
@@ -43,11 +46,12 @@ export const MarkdownPane: React.FC<MarkdownPaneProps> = ({
   const { folderPath } = useWorkspaceContext();
 
   const isActivePane = pane.id === activePaneId;
-  const canSplit = panes.length < 3;
   const canClosePane = panes.length > 1;
   const isSearchOpen = searchPaneId === pane.id;
 
+  const paneRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const [isEdgeSplitOver, setIsEdgeSplitOver] = useState(false);
   const activeTab = pane.tabs.find((t) => t.id === pane.activeTabId);
   const content = activeTab?.content || '';
   const selectedFilePath = activeTab?.filePath || null;
@@ -261,21 +265,58 @@ export const MarkdownPane: React.FC<MarkdownPaneProps> = ({
   };
 
   const handleDragOver = (e: React.DragEvent) => {
-    if (e.dataTransfer.types.includes('application/json')) {
-      e.preventDefault();
-      e.stopPropagation();
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+
+    if (canSplit && paneRef.current) {
+      const rect = paneRef.current.getBoundingClientRect();
+      // 右端25%かつ80px以上右側の領域であれば新規ペイン分割移動ガイドを表示
+      const isRightEdge = e.clientX > rect.right - Math.max(80, rect.width * 0.25);
+      setIsEdgeSplitOver(isRightEdge);
+      return;
+    }
+    setIsEdgeSplitOver(false);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+      setIsEdgeSplitOver(false);
     }
   };
 
   const handleDrop = (e: React.DragEvent) => {
-    const internalData = e.dataTransfer.getData('application/json');
+    e.preventDefault();
+    e.stopPropagation();
+
+    const wasSplitOver = isEdgeSplitOver;
+    setIsEdgeSplitOver(false);
+
+    // 1. dragState モジュールからの高速取得
+    const dragging = getDraggingTab();
+    setDraggingTab(null);
+
+    if (dragging) {
+      if (wasSplitOver && canSplit) {
+        splitPaneWithTab(dragging.paneId, dragging.tabId, pane.id);
+      } else {
+        handleMoveTab(dragging.paneId, dragging.tabId, pane.id);
+      }
+      return;
+    }
+
+    // 2. dataTransfer からのフォールバック取得
+    const internalData =
+      e.dataTransfer.getData('application/json') || e.dataTransfer.getData('text/plain');
     if (internalData) {
-      e.preventDefault();
-      e.stopPropagation();
       try {
         const data = JSON.parse(internalData);
         if (data.type === 'tab' && data.paneId && data.tabId) {
-          handleMoveTab(data.paneId, data.tabId, pane.id);
+          if (wasSplitOver && canSplit) {
+            splitPaneWithTab(data.paneId, data.tabId, pane.id);
+          } else {
+            handleMoveTab(data.paneId, data.tabId, pane.id);
+          }
         } else if (data.type === 'file' && data.filePath) {
           onDropFile(data.filePath, pane.id);
         }
@@ -287,17 +328,26 @@ export const MarkdownPane: React.FC<MarkdownPaneProps> = ({
 
   return (
     <div 
-      className={`pane ${isActivePane ? 'active-pane' : ''}`} 
+      ref={paneRef}
+      className={`pane ${isActivePane ? 'active-pane' : ''}`}
+      data-pane-id={pane.id}
       onClick={() => setActivePaneId(pane.id)}
       onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
+      {isEdgeSplitOver && (
+        <div className="pane-drop-split-right">
+          右に分割して開く
+        </div>
+      )}
       <TabBar
         paneId={pane.id}
         tabs={pane.tabs}
         activeTabId={pane.activeTabId}
         onSelectTab={(tabId) => handleSelectTab(pane.id, tabId)}
         onCloseTab={(tabId) => handleCloseTab(pane.id, tabId)}
+        onMoveTab={handleMoveTab}
         onSplitPane={canSplit ? () => handleSplitPane(pane.id) : undefined}
         onClosePane={canClosePane ? () => handleClosePane(pane.id) : undefined}
         canSplit={canSplit}

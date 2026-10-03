@@ -16,7 +16,7 @@ interface UseActiveFileWatcherOptions {
  * 外部保存された際に自動リロード（ホットリフレッシュ）を行うカスタムフック
  */
 export function useActiveFileWatcher({ panes, reloadTabContent }: UseActiveFileWatcherOptions) {
-  // 各ペインで現在アクティブなファイル（最大3ファイル）のみを抽出
+  // 各ペインで現在アクティブなファイル（表示中の各ペイン分）のみを抽出
   const activeFilePaths = useMemo(() => {
     const paths: string[] = [];
     for (const p of panes) {

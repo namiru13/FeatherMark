@@ -8,7 +8,12 @@ const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 interface UseLinkNavigationOptions {
   panes: PaneItem[];
   folderPath: string | null;
-  onSelectFile: (path: string, initialHash?: string | null, targetPaneId?: string) => Promise<void>;
+  onSelectFile: (
+    path: string,
+    initialHash?: string | null,
+    targetPaneId?: string,
+    forceNew?: boolean
+  ) => Promise<void>;
   onError?: (msg: string) => void;
 }
 
@@ -23,19 +28,35 @@ export function useLinkNavigation({
   onError,
 }: UseLinkNavigationOptions) {
   // アンカー位置へスムーズにスクロールする
-  const scrollToAnchor = useCallback((hash: string, _paneId?: string) => {
+  const scrollToAnchor = useCallback((hash: string, paneId?: string) => {
     if (!hash) return;
     try {
       const rawHash = hash.replace(/^#/, '');
       const decoded = decodeURIComponent(rawHash).trim();
       const slug = slugify(decoded);
 
-      const targetElement =
-        document.getElementById(decoded) ||
-        document.getElementById(slug) ||
-        document.getElementById(rawHash) ||
-        (decoded ? document.querySelector(`[id="${CSS.escape(decoded)}"]`) : null) ||
-        (slug ? document.querySelector(`[id="${CSS.escape(slug)}"]`) : null);
+      // 指定されたペインのコンテナ（.markdown-body）を優先検索スコープとする
+      const paneSelector = paneId ? `[data-pane-id="${CSS.escape(paneId)}"] .markdown-body` : null;
+      const paneContainer = paneSelector ? document.querySelector(paneSelector) : null;
+
+      let targetElement: Element | null = null;
+
+      if (paneContainer) {
+        targetElement =
+          (decoded ? paneContainer.querySelector(`[id="${CSS.escape(decoded)}"]`) : null) ||
+          (slug ? paneContainer.querySelector(`[id="${CSS.escape(slug)}"]`) : null) ||
+          (rawHash ? paneContainer.querySelector(`[id="${CSS.escape(rawHash)}"]`) : null);
+      }
+
+      // ペインスコープで見つからない場合のフォールバック（全体検索）
+      if (!targetElement) {
+        targetElement =
+          document.getElementById(decoded) ||
+          document.getElementById(slug) ||
+          document.getElementById(rawHash) ||
+          (decoded ? document.querySelector(`[id="${CSS.escape(decoded)}"]`) : null) ||
+          (slug ? document.querySelector(`[id="${CSS.escape(slug)}"]`) : null);
+      }
 
       if (targetElement) {
         targetElement.scrollIntoView({ behavior: 'smooth', block: 'start' });

@@ -279,6 +279,20 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                 <kbd className="shortcut-key">Ctrl+Shift+T</kbd>
               </div>
 
+              <div className="shortcut-group-title">ペイン・タブ移動</div>
+              <div className="shortcut-item">
+                <span className="shortcut-action">アクティブタブを右のペインへ移動</span>
+                <kbd className="shortcut-key">Ctrl+Alt+→</kbd>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-action">アクティブタブを左のペインへ移動</span>
+                <kbd className="shortcut-key">Ctrl+Alt+←</kbd>
+              </div>
+              <div className="shortcut-item">
+                <span className="shortcut-action">タブの並び替え・ペイン間移動</span>
+                <span className="shortcut-key-text">ドラッグ＆ドロップ</span>
+              </div>
+
               <div className="shortcut-group-title">タブナビゲーション</div>
               <div className="shortcut-item">
                 <span className="shortcut-action">次のタブに切り替え</span>

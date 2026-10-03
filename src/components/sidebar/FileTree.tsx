@@ -14,7 +14,7 @@ interface FileTreeItemProps {
   entry: FileEntry;
   depth: number;
   selectedPath: string | null;
-  onSelectFile: (path: string) => void;
+  onSelectFile: (path: string, forceNew?: boolean) => void;
   collapseAllTrigger: number;
   onContextMenu?: (e: React.MouseEvent, entry: FileEntry) => void;
 }
@@ -60,6 +60,24 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
     }
   };
 
+  // マウス中ボタン（ホイールクリック）による自動スクロール等の抑制
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (e.button === 1) {
+      e.preventDefault();
+    }
+  };
+
+  // マウスホイールクリック（中ボタン）で強制的に新規タブで開く
+  const handleAuxClick = (e: React.MouseEvent) => {
+    if (e.button === 1) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!entry.is_dir && entry.is_markdown) {
+        onSelectFile(entry.path, true);
+      }
+    }
+  };
+
   const isSelected = selectedPath === entry.path;
   const paddingLeft = 12 + depth * 16;
 
@@ -71,6 +89,8 @@ export const FileTreeItem: React.FC<FileTreeItemProps> = ({
         } ${!entry.is_dir && !entry.is_markdown ? 'non-markdown' : ''}`}
         style={{ paddingLeft: `${paddingLeft}px` }}
         onClick={handleToggle}
+        onMouseDown={handleMouseDown}
+        onAuxClick={handleAuxClick}
         onContextMenu={(e) => {
           if (onContextMenu) {
             onContextMenu(e, entry);

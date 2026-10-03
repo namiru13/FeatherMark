@@ -25,7 +25,9 @@ export function useToc({ activeContent, activePaneId }: UseTocOptions) {
         return;
       }
 
-      const activePaneElement = document.querySelector('.pane.active-pane .markdown-body');
+      const activePaneElement =
+        document.querySelector(`[data-pane-id="${CSS.escape(activePaneId)}"] .markdown-body`) ||
+        document.querySelector('.pane.active-pane .markdown-body');
       if (!activePaneElement) {
         setTocItems([]);
         return;
@@ -51,17 +53,16 @@ export function useToc({ activeContent, activePaneId }: UseTocOptions) {
   useEffect(() => {
     if (tocItems.length === 0) return;
 
-    const activePaneContent = document.querySelector('.pane.active-pane .pane-content');
-    if (!activePaneContent) return;
+    const activeMarkdownBody =
+      document.querySelector(`[data-pane-id="${CSS.escape(activePaneId)}"] .markdown-body`) ||
+      document.querySelector('.pane.active-pane .markdown-body');
+    if (!activeMarkdownBody) return;
 
     const handleScroll = () => {
-      const activePaneElement = document.querySelector('.pane.active-pane .markdown-body');
-      if (!activePaneElement) return;
-
-      const headings = Array.from(activePaneElement.querySelectorAll('h1, h2, h3, h4, h5, h6'));
+      const headings = Array.from(activeMarkdownBody.querySelectorAll('h1, h2, h3, h4, h5, h6'));
       if (headings.length === 0) return;
 
-      const containerRect = activePaneContent.getBoundingClientRect();
+      const containerRect = activeMarkdownBody.getBoundingClientRect();
       let currentActive: string | null = headings[0].id || null;
 
       for (const heading of headings) {
@@ -75,24 +76,26 @@ export function useToc({ activeContent, activePaneId }: UseTocOptions) {
       setActiveHeadingId(currentActive);
     };
 
-    activePaneContent.addEventListener('scroll', handleScroll, { passive: true });
+    activeMarkdownBody.addEventListener('scroll', handleScroll, { passive: true });
     handleScroll();
 
     return () => {
-      activePaneContent.removeEventListener('scroll', handleScroll);
+      activeMarkdownBody.removeEventListener('scroll', handleScroll);
     };
   }, [tocItems, activePaneId]);
 
   // 目次項目クリック時のスムーズスクロール
   const handleSelectHeading = useCallback((id: string) => {
-    const activePaneElement = document.querySelector('.pane.active-pane .markdown-body');
+    const activePaneElement =
+      document.querySelector(`[data-pane-id="${CSS.escape(activePaneId)}"] .markdown-body`) ||
+      document.querySelector('.pane.active-pane .markdown-body');
     if (!activePaneElement) return;
     const target = activePaneElement.querySelector(`[id="${CSS.escape(id)}"]`);
     if (target) {
       target.scrollIntoView({ behavior: 'smooth', block: 'start' });
       setActiveHeadingId(id);
     }
-  }, []);
+  }, [activePaneId]);
 
   return {
     tocItems,

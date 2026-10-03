@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { openWithDefaultSize } from '../utils/dialog';
-import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { PaneItem, TabItem } from '../types';
 import { generateId } from '../utils/id';
 import { findTabByPath } from '../utils/tab';
@@ -12,9 +11,9 @@ import {
   isSubpathOf,
   normalizePath,
 } from '../utils/path';
+import { isDraggingTab } from '../utils/dragState';
 
 const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const appWindow = isTauri ? getCurrentWebviewWindow() : null;
 
 interface UseFileOperationsOptions {
   panes: PaneItem[];
@@ -49,12 +48,17 @@ export function useFileOperations({
 
   // ファイルを選択して指定ペインに表示
   const handleSelectFile = useCallback(
-    async (path: string, initialHash?: string | null, targetPaneId?: string) => {
+    async (
+      path: string,
+      initialHash?: string | null,
+      targetPaneId?: string,
+      forceNew?: boolean
+    ) => {
       const targetId = targetPaneId || activePaneId;
       const targetPane = panes.find((p) => p.id === targetId);
 
-      // 対象ペインに既に開かれているファイルの場合は新規追加せず既存タブを選択
-      if (targetPane) {
+      // 対象ペインに既に開かれているファイルの場合は新規追加せず既存タブを選択（forceNew時はスキップして新規タブを開く）
+      if (!forceNew && targetPane) {
         const normPath = normalizePath(path);
         const existingTab = targetPane.tabs.find(
           (t) => normalizePath(t.filePath) === normPath
@@ -209,97 +213,40 @@ export function useFileOperations({
 
   // ドラッグ関連ハンドラ
   const handleDragEnter = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    if (e.dataTransfer.types.includes('application/json')) return;
+    // タブのDnD中または内部JSONデータの場合はファイルドロップオーバーレイを表示しない
+    if (isDraggingTab() || e.dataTransfer.types.includes('application/json')) return;
+    // 外部ファイルのドラッグの場合のみオーバーレイを表示
+    if (!e.dataTransfer.types.includes('Files') && !e.dataTransfer.types.includes('text/plain')) return;
+    // タブのドラッグ（text/plainに内部JSONが入っている）は除外
     e.preventDefault();
-    e.stopPropagation();
     setIsDragging(true);
   }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
+    // タブのDnD中はApp.tsxレベルのDragOverをブロックしない（MarkdownPane/TabBarのドロップが機能するように）
+    if (isDraggingTab() || e.dataTransfer.types.includes('application/json')) {
+      e.preventDefault();
+      return;
+    }
     e.preventDefault();
-    e.stopPropagation();
   }, []);
 
   const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
     if (e.currentTarget.contains(e.relatedTarget as Node)) return;
     setIsDragging(false);
   }, []);
 
-  // アクティブペインIDの最新参照を保持（ネイティブD&Dイベント用）
-  const activePaneIdRef = useRef(activePaneId);
-  useEffect(() => {
-    activePaneIdRef.current = activePaneId;
-  }, [activePaneId]);
 
-  const lastDropHandledTimeRef = useRef<number>(0);
-
-  // Tauriネイティブのファイルドロップリスナー (Windows / macOS)
-  useEffect(() => {
-    if (!appWindow) return;
-
-    let unlisten: (() => void) | undefined;
-    appWindow
-      .onDragDropEvent(async (event) => {
-        if (event.payload.type === 'over' || event.payload.type === 'enter') {
-          setIsDragging(true);
-        } else if (event.payload.type === 'leave') {
-          setIsDragging(false);
-        } else if (event.payload.type === 'drop') {
-          setIsDragging(false);
-          const paths = event.payload.paths;
-          if (!paths || paths.length === 0) return;
-
-          const path = paths[0];
-          if (!isMarkdownFile(path)) {
-            onError?.('Markdown (.md, .markdown) ファイルをドロップしてください。');
-            return;
-          }
-
-          lastDropHandledTimeRef.current = Date.now();
-
-          try {
-            const [filePath, text] = await invoke<[string, string]>('read_md_file', { path });
-            const filename = getPathBaseName(filePath) || 'Untitled';
-
-            const newTab: TabItem = {
-              id: generateId(),
-              filePath,
-              fileName: filename,
-              content: text,
-              isStandalone: true,
-            };
-
-            addTabToPane(activePaneIdRef.current, newTab);
-          } catch (err: unknown) {
-            onError?.(typeof err === 'string' ? err : 'ファイルの読み込みに失敗しました。');
-          }
-        }
-      })
-      .then((fn) => {
-        unlisten = fn;
-      })
-      .catch((err) => {
-        console.error('onDragDropEvent の登録に失敗:', err);
-      });
-
-    return () => {
-      if (unlisten) unlisten();
-    };
-  }, [addTabToPane, onError]);
-
-  // ファイル/フォルダがドロップされた時の処理 (HTML5フォールバック)
+  // ファイル/フォルダがドロップされた時の処理
   const handleDrop = useCallback(
     async (e: React.DragEvent<HTMLDivElement>) => {
       e.preventDefault();
       e.stopPropagation();
       setIsDragging(false);
 
-      // ネイティブ側で既に処理された直後の場合は重複防止
-      if (Date.now() - lastDropHandledTimeRef.current < 1000) {
-        return;
-      }
+      // タブのDnD中（内部転送）はファイルドロップとして処理しない
+      if (isDraggingTab()) return;
+      if (e.dataTransfer.types.includes('application/json')) return;
 
       const files = e.dataTransfer?.files;
       if (!files || files.length === 0) return;
@@ -311,19 +258,32 @@ export function useFileOperations({
       }
 
       try {
-        const text = await file.text();
-        const html = await invoke<string>('parse_markdown', { md: text });
-
+        // Tauri環境ではfile.pathからファイルパスを取得してread_md_fileで正規化されたHTMLを取得
         const droppedPath = (file as unknown as { path?: string }).path || '';
-        const newTab: TabItem = {
-          id: generateId(),
-          filePath: droppedPath,
-          fileName: file.name,
-          content: html,
-          isStandalone: true,
-        };
-
-        addTabToPane(activePaneId, newTab);
+        if (isTauri && droppedPath) {
+          const [filePath, text] = await invoke<[string, string]>('read_md_file', { path: droppedPath });
+          const filename = getPathBaseName(filePath) || file.name;
+          const newTab: TabItem = {
+            id: generateId(),
+            filePath,
+            fileName: filename,
+            content: text,
+            isStandalone: true,
+          };
+          addTabToPane(activePaneId, newTab);
+        } else {
+          // 非Tauri環境フォールバック
+          const text = await file.text();
+          const html = await invoke<string>('parse_markdown', { md: text });
+          const newTab: TabItem = {
+            id: generateId(),
+            filePath: droppedPath,
+            fileName: file.name,
+            content: html,
+            isStandalone: true,
+          };
+          addTabToPane(activePaneId, newTab);
+        }
       } catch {
         onError?.('ファイルの読み込みに失敗しました。');
       }

@@ -303,6 +303,9 @@ export interface BuildPaneContextMenuOptions {
   actions: {
     onOpenInApp: (path: string, appType: 'vscode' | 'notepad' | 'default' | 'custom', appPath?: string) => void;
     onRevealInExplorer: (path: string) => void;
+    onOpenDiff?: (path: string) => void;
+    onCompareGit?: (path: string, revision?: string) => void;
+    onOpenGitCommitModal?: (path: string) => void;
     onCopyPath: (path: string) => void;
     onPrintDocument: () => void;
   };
@@ -330,7 +333,36 @@ export function buildPaneContextMenuItems({
     icons
   );
 
-  const items: ContextMenuItem[] = [
+  const items: ContextMenuItem[] = [];
+
+  if (actions.onCompareGit && !tab.filePath.startsWith('git://') && !tab.filePath.includes('::')) {
+    items.push({
+      id: 'pane-git-diff-compare',
+      label: 'Git HEAD と差分比較',
+      icon: icons?.git || icons?.explorer,
+      onClick: () => actions.onCompareGit!(tab.filePath, 'HEAD'),
+    });
+  }
+
+  if (actions.onOpenGitCommitModal && !tab.filePath.startsWith('git://') && !tab.filePath.includes('::')) {
+    items.push({
+      id: 'pane-git-commit-history-diff',
+      label: 'Git コミット履歴と比較...',
+      icon: icons?.git || icons?.explorer,
+      onClick: () => actions.onOpenGitCommitModal!(tab.filePath),
+    });
+  }
+
+  if (actions.onOpenDiff) {
+    items.push({
+      id: 'pane-diff-compare',
+      label: '別ファイルと差分比較...',
+      icon: icons?.explorer,
+      onClick: () => actions.onOpenDiff!(tab.filePath),
+    });
+  }
+
+  items.push(
     {
       id: 'pane-other-apps',
       label: '他のアプリで開く',
@@ -349,8 +381,8 @@ export function buildPaneContextMenuItems({
       label: 'ファイルパスをコピー',
       icon: icons?.copy,
       onClick: () => actions.onCopyPath(tab.filePath),
-    },
-  ];
+    }
+  );
 
   if (relPath) {
     items.push({

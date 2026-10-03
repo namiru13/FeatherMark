@@ -40,6 +40,7 @@ function AppContent() {
 
   const {
     panes,
+    panesContainerRef,
     activePaneId,
     setActivePaneId,
     activeTab,
@@ -51,6 +52,7 @@ function AppContent() {
     handleCloseOtherTabs,
     handleCloseTabsToRight,
     handleReopenClosedTab,
+    moveActiveTabToPane,
     goToNextTab,
     goToPrevTab,
     goToNthTab,
@@ -152,12 +154,22 @@ function AppContent() {
 
   // --- ファイル操作 & ナビゲーション ---
   const handleSelectFileRef = useRef<
-    (path: string, initialHash?: string | null, targetPaneId?: string) => Promise<void>
+    (
+      path: string,
+      initialHash?: string | null,
+      targetPaneId?: string,
+      forceNew?: boolean
+    ) => Promise<void>
   >(async () => {});
 
   const handleSelectFileProxy = useCallback(
-    async (path: string, initialHash?: string | null, targetPaneId?: string) => {
-      await handleSelectFileRef.current(path, initialHash, targetPaneId);
+    async (
+      path: string,
+      initialHash?: string | null,
+      targetPaneId?: string,
+      forceNew?: boolean
+    ) => {
+      await handleSelectFileRef.current(path, initialHash, targetPaneId, forceNew);
     },
     []
   );
@@ -209,6 +221,8 @@ function AppContent() {
       goToTab: goToNthTab,
       openFile: handleOpenFile,
       reopenClosedTab: handleReopenClosedTab,
+      moveTabRight: () => moveActiveTabToPane('right'),
+      moveTabLeft: () => moveActiveTabToPane('left'),
       toggleSidebar,
       openQuickOpen: handleOpenQuickOpen,
       closeQuickOpen: handleCloseQuickOpen,
@@ -226,6 +240,7 @@ function AppContent() {
       goToNthTab,
       handleOpenFile,
       handleReopenClosedTab,
+      moveActiveTabToPane,
       toggleSidebar,
       handleOpenQuickOpen,
       handleCloseQuickOpen,
@@ -268,7 +283,7 @@ function AppContent() {
       <div className="main-layout">
         {isSidebarOpen && (
           <Sidebar
-            onSelectFile={(path) => handleSelectFile(path)}
+            onSelectFile={(path, forceNew) => handleSelectFile(path, null, undefined, forceNew)}
             tocItems={tocItems}
             activeHeadingId={activeHeadingId}
             onSelectHeading={handleSelectHeading}
@@ -276,7 +291,7 @@ function AppContent() {
           />
         )}
 
-        <main className="content-area panes-container">
+        <main ref={panesContainerRef} className="content-area panes-container">
           {panes.map((pane) => (
             <MarkdownPane
               key={pane.id}

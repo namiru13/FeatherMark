@@ -16,6 +16,10 @@ export interface ShortcutActions {
   openFile: () => void;
   /** Ctrl+Shift+T: 最後に閉じたタブを復元 */
   reopenClosedTab: () => void;
+  /** Ctrl+Alt+→: アクティブタブを右のペインへ移動 */
+  moveTabRight?: () => void;
+  /** Ctrl+Alt+←: アクティブタブを左のペインへ移動 */
+  moveTabLeft?: () => void;
   /** Ctrl+B: サイドバーの表示/非表示切替 */
   toggleSidebar: () => void;
   /** Ctrl+P: クイックオープンを開く */
@@ -77,6 +81,20 @@ export function useKeyboardShortcuts({ actions, isSettingsOpen, isSearchOpen, is
       if (ctrl && shift && key === 't') {
         e.preventDefault();
         actions.reopenClosedTab();
+        return;
+      }
+
+      // --- Ctrl+Alt+→: アクティブタブを右のペインへ移動 ---
+      if (ctrl && e.altKey && !shift && (key === 'arrowright' || e.code === 'ArrowRight')) {
+        e.preventDefault();
+        actions.moveTabRight?.();
+        return;
+      }
+
+      // --- Ctrl+Alt+←: アクティブタブを左のペインへ移動 ---
+      if (ctrl && e.altKey && !shift && (key === 'arrowleft' || e.code === 'ArrowLeft')) {
+        e.preventDefault();
+        actions.moveTabLeft?.();
         return;
       }
 

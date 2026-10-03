@@ -12,7 +12,7 @@ import {
 import { useWorkspaceContext, useUIContext, usePaneContext } from '../../contexts';
 
 export interface SidebarProps {
-  onSelectFile: (path: string) => void;
+  onSelectFile: (path: string, forceNew?: boolean) => void;
   tocItems: TocItem[];
   activeHeadingId: string | null;
   onSelectHeading: (id: string) => void;

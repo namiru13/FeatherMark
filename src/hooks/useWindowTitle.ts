@@ -3,9 +3,6 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow';
 import type { TabItem } from '../types';
 import { isSubpathOf } from '../utils/path';
 
-const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window;
-const appWindow = isTauri ? getCurrentWebviewWindow() : null;
-
 interface UseWindowTitleProps {
   activeTab?: TabItem | null;
   folderName: string | null;
@@ -13,14 +10,17 @@ interface UseWindowTitleProps {
 }
 
 export function useWindowTitle({ activeTab, folderName, folderPath }: UseWindowTitleProps) {
-  const updateTitle = useCallback((filename: string, dirName?: string | null) => {
-    const title = dirName
-      ? `${filename} - ${dirName} - FeatherMark`
-      : `${filename} - FeatherMark`;
+  const updateTitle = useCallback((title: string) => {
     document.title = title;
-    appWindow?.setTitle(title).catch((err) => {
-      console.error('ウィンドウタイトルの更新に失敗:', err);
-    });
+    if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+      try {
+        getCurrentWebviewWindow().setTitle(title).catch((err) => {
+          console.error('ウィンドウタイトルの更新に失敗:', err);
+        });
+      } catch (err) {
+        console.error('ウィンドウインスタンスの取得に失敗:', err);
+      }
+    }
   }, []);
 
   const isTabInOpenedFolder = Boolean(
@@ -33,10 +33,19 @@ export function useWindowTitle({ activeTab, folderName, folderPath }: UseWindowT
   );
 
   useEffect(() => {
+    let title: string;
     if (activeTab) {
-      updateTitle(activeTab.fileName, isTabInOpenedFolder ? folderName : null);
+      if (isTabInOpenedFolder && folderName) {
+        title = `${activeTab.fileName} - ${folderName} - FeatherMark`;
+      } else {
+        title = `${activeTab.fileName} - FeatherMark`;
+      }
+    } else if (folderName) {
+      title = `${folderName} - FeatherMark`;
     } else {
-      updateTitle('FeatherMark', folderName);
+      title = 'FeatherMark';
     }
+
+    updateTitle(title);
   }, [activeTab, folderName, isTabInOpenedFolder, updateTitle]);
 }

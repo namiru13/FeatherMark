@@ -11,6 +11,8 @@ interface SettingsModalProps {
   onThemeChange: (theme: ThemeMode) => void;
   autoCloseEmptyPane: boolean;
   onAutoCloseEmptyPaneChange: (value: boolean) => void;
+  restoreSessionOnStartup: boolean;
+  onRestoreSessionOnStartupChange: (value: boolean) => void;
   customApps: CustomApp[];
   onCustomAppsChange: (apps: CustomApp[]) => void;
 }
@@ -50,6 +52,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onThemeChange,
   autoCloseEmptyPane,
   onAutoCloseEmptyPaneChange,
+  restoreSessionOnStartup,
+  onRestoreSessionOnStartupChange,
   customApps,
   onCustomAppsChange,
 }) => {
@@ -157,6 +161,41 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </button>
                 );
               })}
+            </div>
+          </section>
+
+          <section className="settings-section" style={{ marginTop: '20px' }}>
+            <h3 className="settings-section-title">セッション復元</h3>
+            <p className="settings-section-desc">
+              次回起動時に、前回終了時のフォルダ、ペイン構成、開いていたタブを自動的に復元します。
+            </p>
+            <div className="theme-options-grid">
+              <button
+                type="button"
+                className={`theme-option-card ${restoreSessionOnStartup ? 'selected' : ''}`}
+                onClick={() => onRestoreSessionOnStartupChange(true)}
+              >
+                <div className="theme-option-header">
+                  <span className="theme-option-label">前回のセッションを復元</span>
+                  <span className="theme-option-radio">
+                    <span className="theme-option-radio-inner" />
+                  </span>
+                </div>
+                <div className="theme-option-description">終了時のフォルダとタブ状態を再開します</div>
+              </button>
+              <button
+                type="button"
+                className={`theme-option-card ${!restoreSessionOnStartup ? 'selected' : ''}`}
+                onClick={() => onRestoreSessionOnStartupChange(false)}
+              >
+                <div className="theme-option-header">
+                  <span className="theme-option-label">復元しない</span>
+                  <span className="theme-option-radio">
+                    <span className="theme-option-radio-inner" />
+                  </span>
+                </div>
+                <div className="theme-option-description">常に新規の空ウィンドウで起動します</div>
+              </button>
             </div>
           </section>
 

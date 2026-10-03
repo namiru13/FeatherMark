@@ -9,9 +9,10 @@ const isTauri = typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window
 interface UseWorkspaceOptions {
   onError?: (msg: string) => void;
   onFolderOpened?: () => void;
+  onFolderLoaded?: (path: string, name: string) => void;
 }
 
-export function useWorkspace({ onError, onFolderOpened }: UseWorkspaceOptions = {}) {
+export function useWorkspace({ onError, onFolderOpened, onFolderLoaded }: UseWorkspaceOptions = {}) {
   const [folderPath, setFolderPath] = useState<string | null>(null);
   const [folderName, setFolderName] = useState<string | null>(null);
   const [rootEntries, setRootEntries] = useState<FileEntry[]>([]);
@@ -23,6 +24,8 @@ export function useWorkspace({ onError, onFolderOpened }: UseWorkspaceOptions = 
     try {
       const entries = await invoke<FileEntry[]>('read_directory', { path });
       setRootEntries(entries);
+      const name = getPathBaseName(path) || path;
+      onFolderLoaded?.(path, name);
     } catch (err: unknown) {
       const errorMsg = typeof err === 'string' ? err : 'フォルダの読み込みに失敗しました。';
       onError?.(errorMsg);
@@ -30,7 +33,7 @@ export function useWorkspace({ onError, onFolderOpened }: UseWorkspaceOptions = 
     } finally {
       setIsLoadingRoot(false);
     }
-  }, [onError]);
+  }, [onError, onFolderLoaded]);
 
   // 「フォルダを開く」ダイアログハンドラ
   const handleOpenFolder = useCallback(async () => {

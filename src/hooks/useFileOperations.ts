@@ -28,6 +28,7 @@ interface UseFileOperationsOptions {
   loadDirectory: (path: string) => Promise<void>;
   scrollToAnchor: (hash: string, paneId?: string) => void;
   onError?: (msg: string) => void;
+  onAddRecentItem?: (item: { path: string; name: string; isDir: boolean }) => void;
 }
 
 export function useFileOperations({
@@ -43,6 +44,7 @@ export function useFileOperations({
   loadDirectory,
   scrollToAnchor,
   onError,
+  onAddRecentItem,
 }: UseFileOperationsOptions) {
   const [isDragging, setIsDragging] = useState(false);
 
@@ -90,6 +92,7 @@ export function useFileOperations({
 
         addTabToPane(targetId, newTab);
         setActivePaneId(targetId);
+        onAddRecentItem?.({ path: filePath, name: filename, isDir: false });
 
         if (initialHash) {
           setTimeout(() => {
@@ -100,7 +103,7 @@ export function useFileOperations({
         onError?.(typeof err === 'string' ? err : 'ファイルの読み込みに失敗しました。');
       }
     },
-    [activePaneId, addTabToPane, handleSelectTab, panes, scrollToAnchor, setActivePaneId, onError]
+    [activePaneId, addTabToPane, handleSelectTab, panes, scrollToAnchor, setActivePaneId, onError, onAddRecentItem]
   );
 
   const handleDropFile = useCallback(
@@ -189,6 +192,8 @@ export function useFileOperations({
       const parentDirName = parentDir ? getPathBaseName(parentDir) : null;
       const isAlreadyInFolder = folderPath ? isSubpathOf(path, folderPath) : false;
 
+      onAddRecentItem?.({ path, name: filename, isDir: false });
+
       if (!isAlreadyInFolder && parentDir && parentDirName) {
         setFolderPath(parentDir);
         setFolderName(parentDirName);
@@ -209,6 +214,7 @@ export function useFileOperations({
     setFolderPath,
     setIsSidebarOpen,
     onError,
+    onAddRecentItem,
   ]);
 
   // ドラッグ関連ハンドラ
@@ -271,6 +277,7 @@ export function useFileOperations({
             isStandalone: true,
           };
           addTabToPane(activePaneId, newTab);
+          onAddRecentItem?.({ path: filePath, name: filename, isDir: false });
         } else {
           // 非Tauri環境フォールバック
           const text = await file.text();
@@ -283,12 +290,15 @@ export function useFileOperations({
             isStandalone: true,
           };
           addTabToPane(activePaneId, newTab);
+          if (droppedPath) {
+            onAddRecentItem?.({ path: droppedPath, name: file.name, isDir: false });
+          }
         }
       } catch {
         onError?.('ファイルの読み込みに失敗しました。');
       }
     },
-    [activePaneId, addTabToPane, onError]
+    [activePaneId, addTabToPane, onError, onAddRecentItem]
   );
 
   return {

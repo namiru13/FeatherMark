@@ -456,6 +456,12 @@ pub fn reset_file_dialog_size() {
     reset_windows_file_dialog_size();
 }
 
+/// 起動時のコマンドライン引数を取得する
+#[tauri::command]
+pub fn get_cli_args() -> Vec<String> {
+    std::env::args().skip(1).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -463,6 +469,13 @@ mod tests {
     #[test]
     fn test_reset_file_dialog_size_does_not_panic() {
         reset_windows_file_dialog_size();
+    }
+
+    #[test]
+    fn test_get_cli_args() {
+        let args = get_cli_args();
+        // 呼び出しでpanicしないことを検証
+        let _ = args.len();
     }
 
     #[test]

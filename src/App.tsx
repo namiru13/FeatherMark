@@ -14,6 +14,8 @@ import {
   UIProvider,
   useUIContext,
 } from './contexts';
+import { invoke } from '@tauri-apps/api/core';
+import { listen } from '@tauri-apps/api/event';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { useActiveFileWatcher } from './hooks/useActiveFileWatcher';
 import { useToc } from './hooks/useToc';
@@ -23,6 +25,10 @@ import { useCustomApps } from './hooks/useCustomApps';
 import { useWindowTitle } from './hooks/useWindowTitle';
 import { useAppContextMenu } from './hooks/useAppContextMenu';
 import { useDiff } from './hooks/useDiff';
+import { useSession } from './hooks/useSession';
+import { useRecentItems } from './hooks/useRecentItems';
+import type { RecentItem } from './types';
+import { extractMarkdownPathFromArgs } from './utils/path';
 
 function AppContent() {
   const [error, setError] = useState('');
@@ -35,11 +41,14 @@ function AppContent() {
     setFolderName,
     rootEntries,
     loadDirectory,
+    handleOpenFolder,
     registerOnError,
+    registerOnFolderLoaded,
   } = useWorkspaceContext();
 
   const {
     panes,
+    setPanes,
     panesContainerRef,
     activePaneId,
     setActivePaneId,
@@ -79,10 +88,44 @@ function AppContent() {
     handleCloseQuickOpen,
   } = useUIContext();
 
+  // --- セッション保存・復元 ---
+  const {
+    restoreSessionOnStartup,
+    handleRestoreSessionSettingChange,
+    restoreSession,
+  } = useSession({
+    folderPath,
+    folderName,
+    panes,
+    activePaneId,
+    isSidebarOpen,
+    setFolderPath,
+    setFolderName,
+    setIsSidebarOpen,
+    setPanes,
+    setActivePaneId,
+    loadDirectory,
+    onError: setError,
+  });
+
   // ワークスペースエラー通知ハンドラを登録
   useEffect(() => {
     registerOnError(setError);
   }, [registerOnError]);
+
+  // --- 最近開いた項目履歴 ---
+  const {
+    recentItems,
+    addRecentItem,
+    removeRecentItem,
+    clearRecentItems,
+  } = useRecentItems();
+
+  useEffect(() => {
+    registerOnFolderLoaded((path, name) => {
+      addRecentItem({ path, name, isDir: true });
+    });
+  }, [registerOnFolderLoaded, addRecentItem]);
 
   // --- カスタム外部エディタ設定 ---
   const { customApps, handleCustomAppsChange } = useCustomApps();
@@ -205,12 +248,81 @@ function AppContent() {
     loadDirectory,
     scrollToAnchor,
     onError: setError,
+    onAddRecentItem: addRecentItem,
   });
 
   // Proxy ref を実際のハンドラと接続
   useEffect(() => {
     handleSelectFileRef.current = handleSelectFile;
   }, [handleSelectFile]);
+
+  // 最近開いた項目から選択時のハンドラ
+  const handleSelectRecent = useCallback(
+    async (item: RecentItem) => {
+      if (item.isDir) {
+        setFolderPath(item.path);
+        setFolderName(item.name);
+        setIsSidebarOpen(true);
+        await loadDirectory(item.path);
+      } else {
+        await handleSelectFile(item.path, null, undefined, true);
+      }
+    },
+    [handleSelectFile, loadDirectory, setFolderName, setFolderPath, setIsSidebarOpen]
+  );
+
+  // --- 初期起動時のセッション復元 & CLI引数（ファイルダブルクリック等）の処理 ---
+  useEffect(() => {
+    let isMounted = true;
+
+    const initApp = async () => {
+      let cliFilePath: string | null = null;
+      try {
+        const args = await invoke<string[]>('get_cli_args');
+        cliFilePath = extractMarkdownPathFromArgs(args);
+      } catch (e) {
+        console.warn('Failed to get CLI args:', e);
+      }
+
+      // セッション復元を実行
+      await restoreSession();
+
+      // 起動引数にファイルが指定されていた場合、そのファイルを開いてアクティブにする
+      if (cliFilePath && isMounted) {
+        await handleSelectFileRef.current(cliFilePath, null, undefined, true);
+      }
+    };
+
+    initApp();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [restoreSession]);
+
+  // --- 既に起動している状態で別のファイルがダブルクリックされた際のシングルインスタンスイベント受信 ---
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+
+    const setupListener = async () => {
+      try {
+        unlisten = await listen<string[]>('open-file-from-cli', async (event) => {
+          const filePath = extractMarkdownPathFromArgs(event.payload || []);
+          if (filePath) {
+            await handleSelectFileRef.current(filePath, null, undefined, true);
+          }
+        });
+      } catch (e) {
+        console.warn('Failed to listen to open-file-from-cli:', e);
+      }
+    };
+
+    setupListener();
+
+    return () => {
+      unlisten?.();
+    };
+  }, []);
 
   // --- キーボードショートカットの一元管理 ---
   const shortcutActions = useMemo(
@@ -292,14 +404,22 @@ function AppContent() {
         )}
 
         <main ref={panesContainerRef} className="content-area panes-container">
-          {panes.map((pane) => (
+          {panes.map((pane, idx) => (
             <MarkdownPane
               key={pane.id}
               pane={pane}
+              isFirstPane={idx === 0}
               onLinkClick={handleLinkClick}
               onDropFile={handleDropFile}
               onContextMenuTab={handleContextMenuTab}
               onContextMenuPane={handleContextMenuPane}
+              onOpenFile={handleOpenFile}
+              onOpenFolder={handleOpenFolder}
+              onQuickOpen={handleOpenQuickOpen}
+              onSelectRecent={handleSelectRecent}
+              recentItems={recentItems}
+              onClearRecent={clearRecentItems}
+              onRemoveRecent={removeRecentItem}
             />
           ))}
         </main>
@@ -313,6 +433,8 @@ function AppContent() {
         onThemeChange={handleThemeChange}
         autoCloseEmptyPane={autoCloseEmptyPane}
         onAutoCloseEmptyPaneChange={handleAutoCloseEmptyPaneChange}
+        restoreSessionOnStartup={restoreSessionOnStartup}
+        onRestoreSessionOnStartupChange={handleRestoreSessionSettingChange}
         customApps={customApps}
         onCustomAppsChange={handleCustomAppsChange}
       />

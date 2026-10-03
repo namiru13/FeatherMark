@@ -14,6 +14,7 @@ export interface WorkspaceContextValue {
   handleRefreshFolder: () => Promise<void>;
   registerOnError: (cb: (msg: string) => void) => void;
   registerOnFolderOpened: (cb: () => void) => void;
+  registerOnFolderLoaded: (cb: (path: string, name: string) => void) => void;
 }
 
 const WorkspaceContext = createContext<WorkspaceContextValue | null>(null);
@@ -22,21 +23,25 @@ export interface WorkspaceProviderProps {
   children: React.ReactNode;
   onError?: (msg: string) => void;
   onFolderOpened?: () => void;
+  onFolderLoaded?: (path: string, name: string) => void;
 }
 
 export function WorkspaceProvider({
   children,
   onError,
   onFolderOpened,
+  onFolderLoaded,
 }: WorkspaceProviderProps) {
   const onErrorRef = useRef<((msg: string) => void) | undefined>(onError);
   const onFolderOpenedRef = useRef<(() => void) | undefined>(onFolderOpened);
+  const onFolderLoadedRef = useRef<((path: string, name: string) => void) | undefined>(onFolderLoaded);
 
   // プロップス変更時に ref を同期
   useEffect(() => {
     if (onError !== undefined) onErrorRef.current = onError;
     if (onFolderOpened !== undefined) onFolderOpenedRef.current = onFolderOpened;
-  }, [onError, onFolderOpened]);
+    if (onFolderLoaded !== undefined) onFolderLoadedRef.current = onFolderLoaded;
+  }, [onError, onFolderOpened, onFolderLoaded]);
 
   const registerOnError = useCallback((cb: (msg: string) => void) => {
     onErrorRef.current = cb;
@@ -46,15 +51,21 @@ export function WorkspaceProvider({
     onFolderOpenedRef.current = cb;
   }, []);
 
+  const registerOnFolderLoaded = useCallback((cb: (path: string, name: string) => void) => {
+    onFolderLoadedRef.current = cb;
+  }, []);
+
   const workspace = useWorkspace({
     onError: (msg) => onErrorRef.current?.(msg),
     onFolderOpened: () => onFolderOpenedRef.current?.(),
+    onFolderLoaded: (path, name) => onFolderLoadedRef.current?.(path, name),
   });
 
   const value: WorkspaceContextValue = {
     ...workspace,
     registerOnError,
     registerOnFolderOpened,
+    registerOnFolderLoaded,
   };
 
   return (

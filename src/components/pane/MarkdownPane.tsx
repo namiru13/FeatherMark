@@ -8,21 +8,39 @@ import { DiffViewer } from './DiffViewer';
 import { usePaneContext, useUIContext, useWorkspaceContext } from '../../contexts';
 import { useMermaidRenderer } from '../../hooks/useMermaidRenderer';
 import { setDraggingTab, getDraggingTab } from '../../utils/dragState';
+import { WelcomeView } from './WelcomeView';
+import type { RecentItem } from '../../types';
 
 export interface MarkdownPaneProps {
   pane: PaneItem;
+  isFirstPane?: boolean;
   onLinkClick: (href: string, paneId: string) => void;
   onDropFile: (filePath: string, targetPaneId: string) => void;
   onContextMenuTab?: (e: React.MouseEvent, tab: TabItem, paneId: string) => void;
   onContextMenuPane?: (e: React.MouseEvent, activeTab: TabItem | null) => void;
+  onOpenFile?: () => void;
+  onOpenFolder?: () => void;
+  onQuickOpen?: () => void;
+  onSelectRecent?: (item: RecentItem) => void;
+  recentItems?: RecentItem[];
+  onClearRecent?: () => void;
+  onRemoveRecent?: (path: string) => void;
 }
 
 export const MarkdownPane: React.FC<MarkdownPaneProps> = ({
   pane,
+  isFirstPane,
   onLinkClick,
   onDropFile,
   onContextMenuTab,
   onContextMenuPane,
+  onOpenFile,
+  onOpenFolder,
+  onQuickOpen,
+  onSelectRecent,
+  recentItems,
+  onClearRecent,
+  onRemoveRecent,
 }) => {
   const {
     panes,
@@ -395,13 +413,25 @@ export const MarkdownPane: React.FC<MarkdownPaneProps> = ({
             </div>
           )
         ) : (
-          <div className="empty-state">
-            <div className="empty-state-icon">📄</div>
-            <div className="empty-state-title">タブが開かれていません</div>
-            <div className="empty-state-text">
-              ファイルを開くか、別のペインからタブを移動してください。
+          isFirstPane || panes.length === 1 ? (
+            <WelcomeView
+              onOpenFile={onOpenFile || (() => {})}
+              onOpenFolder={onOpenFolder || (() => {})}
+              onQuickOpen={onQuickOpen || (() => {})}
+              onSelectRecent={onSelectRecent || (() => {})}
+              recentItems={recentItems || []}
+              onClearRecent={onClearRecent || (() => {})}
+              onRemoveRecent={onRemoveRecent}
+            />
+          ) : (
+            <div className="compact-empty-state">
+              <div className="compact-empty-icon">📄</div>
+              <div className="compact-empty-title">タブが開かれていません</div>
+              <div className="compact-empty-desc">
+                ファイルを開くか、別のペインからタブをドラッグして移動してください。
+              </div>
             </div>
-          </div>
+          )
         )}
       </div>
     </div>

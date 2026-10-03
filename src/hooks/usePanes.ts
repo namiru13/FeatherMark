@@ -543,6 +543,7 @@ export function usePanes() {
 
   return {
     panes,
+    setPanes,
     panesContainerRef,
     containerWidth,
     canSplit,

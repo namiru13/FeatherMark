@@ -6,17 +6,27 @@ pub mod utils;
 pub mod watcher;
 pub mod diff;
 
+use tauri::{Emitter, Manager};
 use watcher::FileWatcherState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let _ = app.emit("open-file-from-cli", args);
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .manage(FileWatcherState::new())
         .invoke_handler(tauri::generate_handler![
             commands::file::open_md_file,
             commands::file::open_folder,
             commands::file::reset_file_dialog_size,
+            commands::file::get_cli_args,
             commands::file::read_directory,
             commands::file::read_md_file,
             commands::file::open_in_app,

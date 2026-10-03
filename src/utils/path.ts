@@ -54,3 +54,17 @@ export function isSubpathOf(filePath: string, targetDirPath: string): boolean {
   const normDir = normalizePath(targetDirPath).replace(/\/+$/, '');
   return normFile === normDir || normFile.startsWith(normDir + '/');
 }
+
+/**
+ * コマンドライン引数リストからMarkdownファイルのパスを抽出する
+ */
+export function extractMarkdownPathFromArgs(args: string[]): string | null {
+  for (const arg of args) {
+    if (!arg || arg.startsWith('-')) continue;
+    const clean = arg.replace(/^["']|["']$/g, '').trim();
+    if (clean && isMarkdownFile(clean)) {
+      return clean;
+    }
+  }
+  return null;
+}

@@ -1,7 +1,8 @@
 {
   "name": "feathermark",
   "private": true,
-  "version": "0.2.0",
+  "version": "1.0.0",
+  "description": "Lightweight, blazing-fast local Markdown viewer desktop application for Windows",
   "type": "module",
   "scripts": {
     "dev": "vite",

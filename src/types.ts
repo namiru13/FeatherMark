@@ -11,6 +11,13 @@ export interface ResolvedLink {
   hash?: string | null;
 }
 
+export interface RecentItem {
+  path: string;
+  name: string;
+  isDir: boolean;
+  timestamp: number;
+}
+
 export type ThemeMode = 'light' | 'dark' | 'system';
 
 export interface TabItem {
@@ -118,5 +125,29 @@ export interface ContextMenuState {
   y: number;
   items: ContextMenuItem[];
   title?: string;
+}
+
+export interface SavedTabSession {
+  id: string;
+  filePath: string;
+  fileName: string;
+  scrollTop?: number;
+  isStandalone?: boolean;
+}
+
+export interface SavedPaneSession {
+  id: string;
+  activeTabId: string | null;
+  tabs: SavedTabSession[];
+}
+
+export interface SavedSession {
+  version: number;
+  folderPath: string | null;
+  folderName: string | null;
+  panes: SavedPaneSession[];
+  activePaneId: string;
+  isSidebarOpen: boolean;
+  timestamp: number;
 }
 
